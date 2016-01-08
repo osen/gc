@@ -63,7 +63,7 @@ void gc_purgeblocks()
 
       if(_gc_context.blocks[b].references != NULL)
       {
-          free(_gc_context.blocks[b].references);
+        free(_gc_context.blocks[b].references);
       }
 
       if(b != _gc_context.blocksCount - 1)
@@ -131,7 +131,7 @@ void *gc_alloc(size_t size)
 
   if(rtn == NULL)
   {
-    return rtn;
+    return NULL;
   }
 
   struct GcBlock newBlock = {0};
@@ -141,8 +141,8 @@ void *gc_alloc(size_t size)
 
   if(gc_addblock(&newBlock) != 0)
   {
-    free(rtn); rtn = NULL;
-    return rtn;
+    free(rtn);
+    return NULL;
   }
 
   return rtn;
@@ -156,6 +156,11 @@ void *gc_alloc(size_t size)
  ******************************************************************************/
 int gc_attach(void *ptr, void (*deleter)(void*))
 {
+  if(ptr == NULL)
+  {
+    return 1;
+  }
+
   if(_gc_context.blocks == NULL)
   {
     return 1;
