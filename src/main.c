@@ -72,6 +72,7 @@ int main(int argc, char* argv[])
 
   //root->employee = NULL;
   root->employee->employee = NULL;
+  root->employee->employee = root->employee;
 
   gc_collect();
   //gc_collect();

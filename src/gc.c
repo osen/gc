@@ -197,6 +197,12 @@ int gc_block_add_reference(struct GcBlock *ctx, struct GcBlock *reference)
 
 void gc_assign_generation(struct GcBlock *ctx, int generation)
 {
+  // Generation already assigned
+  if(ctx->generation != -1)
+  {
+    return;
+  }
+
   ctx->generation = generation;
 
   int i; for(i = 0; i < ctx->referencesCount; i++)
@@ -230,6 +236,12 @@ void gc_collect()
       {
         continue;
       }
+
+      // We will let self references pass
+      //if(findBlock == currentBlock)
+      //{
+      //  continue;
+      //}
 
       uintptr_t current = (uintptr_t)currentBlock->ptr;
       uintptr_t end = current + currentBlock->size;
