@@ -239,6 +239,34 @@ int gc_attach(void *ptr, void (*deleter)(void*))
   return 0;
 }
 
+int gc_reattach(void *ptr, void (*deleter)(void*))
+{
+  if(ptr == NULL)
+  {
+    return 1;
+  }
+
+  if(_gc_context.root == NULL)
+  {
+    return 1;
+  }
+
+  struct GcBlock *block = _gc_context.root;
+
+  while(block != NULL)
+  {
+    if(block->ptr == ptr)
+    {
+      block->deleter = deleter;
+      return 0;
+    }
+
+    block = block->next;
+  }
+
+  return 1;
+}
+
 int gc_block_add_reference(struct GcBlock *ctx, struct GcBlock *reference)
 {
   struct GcBlockReference *lastReference = NULL;
