@@ -5,20 +5,27 @@
 #include <stdint.h>
 #include <stdio.h>
 
+struct GcBlockReference
+{
+  struct GcBlock *block;
+  struct GcBlockReference *next;
+  struct GcBlockReference *prev;
+};
+
 struct GcBlock
 {
   void *ptr;
   size_t size;
   void (*deleter)(void*);
-  struct GcBlock **references;
-  int referencesCount;
+  struct GcBlockReference *references;
   int generation;
+  struct GcBlock *next;
+  struct GcBlock *prev;
 };
 
 struct GcContext
 {
-  struct GcBlock *blocks;
-  int blocksCount;
+  struct GcBlock *root;
 };
 
 struct GcContext _gc_context = {0};
@@ -30,19 +37,36 @@ struct GcContext _gc_context = {0};
  ******************************************************************************/
 int gc_addblock(struct GcBlock *block)
 {
-  struct GcBlock *tmpBlocks = realloc(_gc_context.blocks,
-    sizeof(*_gc_context.blocks) * (_gc_context.blocksCount + 1));
+  struct GcBlock *last = _gc_context.root;
 
-  if(tmpBlocks == NULL)
+  if(last == NULL)
   {
     return 1;
   }
 
-  _gc_context.blocks = tmpBlocks;
-  _gc_context.blocks[_gc_context.blocksCount] = *block;
-  _gc_context.blocksCount++;
+  while(last->next != NULL)
+  {
+    last = last->next;
+  }
+
+  last->next = block;
+  block->prev = last;
 
   return 0;
+}
+
+void gc_freereferences(struct GcBlock *ctx)
+{
+  struct GcBlockReference *reference = ctx->references;
+
+  while(reference != NULL)
+  {
+    struct GcBlockReference *tofree = reference;
+    reference = reference->next;
+    free(tofree);
+  }
+
+  ctx->references = NULL;
 }
 
 /******************************************************************************
@@ -55,24 +79,43 @@ int gc_addblock(struct GcBlock *block)
  ******************************************************************************/
 void gc_purgeblocks()
 {
-  int b; for(b = _gc_context.blocksCount - 1; b >= 1; b--)
+  struct GcBlock *block = _gc_context.root;
+
+  if(block == NULL)
   {
-    if(_gc_context.blocks[b].generation == -1)
+    return;
+  }
+
+  while(block->next != NULL)
+  {
+    block = block->next;
+  }
+
+  while(block != _gc_context.root)
+  {
+    if(block->generation == -1)
     {
-      _gc_context.blocks[b].deleter(_gc_context.blocks[b].ptr);
+      block->deleter(block->ptr);
 
-      if(_gc_context.blocks[b].references != NULL)
+      if(block->references != NULL)
       {
-        free(_gc_context.blocks[b].references);
+        gc_freereferences(block);
       }
 
-      if(b != _gc_context.blocksCount - 1)
+      block->prev->next = block->next;
+
+      if(block->next != NULL)
       {
-        memmove(&_gc_context.blocks[b], &_gc_context.blocks[b] + 1,
-          sizeof(*_gc_context.blocks) * (_gc_context.blocksCount - b - 1));
+        block->next->prev = block->prev;
       }
 
-      _gc_context.blocksCount--;
+      struct GcBlock *tofree = block;
+      block = block->prev;
+      free(tofree);
+    }
+    else
+    {
+      block = block->prev;
     }
   }
 }
@@ -89,7 +132,7 @@ void gc_purgeblocks()
  ******************************************************************************/
 void *gc_root(size_t size)
 {
-  if(_gc_context.blocks != NULL)
+  if(_gc_context.root != NULL)
   {
     return NULL;
   }
@@ -101,15 +144,18 @@ void *gc_root(size_t size)
     return NULL;
   }
 
-  struct GcBlock newBlock = {0};
-  newBlock.ptr = rtn;
-  newBlock.size = size;
+  struct GcBlock *newBlock = calloc(1, sizeof(*newBlock));
 
-  if(gc_addblock(&newBlock) != 0)
+  if(newBlock == NULL)
   {
-    free(rtn); rtn = NULL;
-    return rtn;
+    free(rtn);
+    return NULL;
   }
+
+  newBlock->ptr = rtn;
+  newBlock->size = size;
+
+  _gc_context.root = newBlock;
 
   return rtn;
 }
@@ -122,7 +168,7 @@ void *gc_root(size_t size)
  ******************************************************************************/
 void *gc_alloc(size_t size)
 {
-  if(_gc_context.blocks == NULL)
+  if(_gc_context.root == NULL)
   {
     return NULL;
   }
@@ -134,13 +180,21 @@ void *gc_alloc(size_t size)
     return NULL;
   }
 
-  struct GcBlock newBlock = {0};
-  newBlock.ptr = rtn;
-  newBlock.size = size;
-  newBlock.deleter = free;
+  struct GcBlock *newBlock = calloc(1, sizeof(*newBlock));
 
-  if(gc_addblock(&newBlock) != 0)
+  if(newBlock == NULL)
   {
+    free(rtn);
+    return NULL;
+  }
+
+  newBlock->ptr = rtn;
+  newBlock->size = size;
+  newBlock->deleter = free;
+
+  if(gc_addblock(newBlock) != 0)
+  {
+    free(newBlock);
     free(rtn);
     return NULL;
   }
@@ -161,17 +215,24 @@ int gc_attach(void *ptr, void (*deleter)(void*))
     return 1;
   }
 
-  if(_gc_context.blocks == NULL)
+  if(_gc_context.root == NULL)
   {
     return 1;
   }
 
-  struct GcBlock newBlock = {0};
-  newBlock.ptr = ptr;
-  newBlock.deleter = deleter;
+  struct GcBlock *newBlock = calloc(1, sizeof(*newBlock));
 
-  if(gc_addblock(&newBlock) != 0)
+  if(newBlock == NULL)
   {
+    return 1;
+  }
+
+  newBlock->ptr = ptr;
+  newBlock->deleter = deleter;
+
+  if(gc_addblock(newBlock) != 0)
+  {
+    free(newBlock);
     return 1;
   }
 
@@ -180,17 +241,40 @@ int gc_attach(void *ptr, void (*deleter)(void*))
 
 int gc_block_add_reference(struct GcBlock *ctx, struct GcBlock *reference)
 {
-  struct GcBlock **tmpBlocks = realloc(ctx->references,
-    sizeof(*ctx->references) * (ctx->referencesCount + 1));
+  struct GcBlockReference *lastReference = NULL;
 
-  if(tmpBlocks == NULL)
+  if(ctx->references == NULL)
   {
-    return 1;
+    ctx->references = calloc(1, sizeof(*ctx->references));
+
+    if(ctx->references == NULL)
+    {
+      return 1;
+    }
+
+    lastReference = ctx->references;
+  }
+  else
+  {
+    lastReference = ctx->references;
+
+    while(lastReference->next != NULL)
+    {
+      lastReference = lastReference->next;
+    }
+
+    lastReference->next = calloc(1, sizeof(*lastReference));
+
+    if(lastReference->next == NULL)
+    {
+      return 1;
+    }
+
+    lastReference->next->prev = lastReference;
+    lastReference = lastReference->next;
   }
 
-  ctx->references = tmpBlocks;
-  ctx->references[ctx->referencesCount] = reference;
-  ctx->referencesCount ++;
+  lastReference->block = reference;
 
   return 0;
 }
@@ -205,12 +289,15 @@ void gc_assign_generation(struct GcBlock *ctx, int generation)
 
   ctx->generation = generation;
 
-  int i; for(i = 0; i < ctx->referencesCount; i++)
+  struct GcBlockReference *reference = ctx->references;
+
+  while(reference != NULL)
   {
-    gc_assign_generation(ctx->references[i], generation + 1);
+    gc_assign_generation(reference->block, generation + 1);
+    reference = reference->next;
   }
 
-  ctx->referencesCount = 0;
+  gc_freereferences(ctx);
 }
 
 /******************************************************************************
@@ -223,23 +310,25 @@ void gc_assign_generation(struct GcBlock *ctx, int generation)
  ******************************************************************************/
 void gc_collect()
 {
-  int i; for(i = 0; i < _gc_context.blocksCount; i++)
+  struct GcBlock *findBlock = _gc_context.root;
+
+  while(findBlock != NULL)
   {
-    struct GcBlock *findBlock = &_gc_context.blocks[i];
     findBlock->generation = -1;
+    struct GcBlock *currentBlock = _gc_context.root;
 
-    int b; for(b = 0; b < _gc_context.blocksCount; b++)
+    while(currentBlock != NULL)
     {
-      struct GcBlock *currentBlock = &_gc_context.blocks[b];
-
       if(currentBlock->size <= 0)
       {
+        currentBlock = currentBlock->next;
         continue;
       }
 
       // We will let self references pass
       //if(findBlock == currentBlock)
       //{
+      //  currentBlock = currentBlock->next;
       //  continue;
       //}
 
@@ -259,10 +348,15 @@ void gc_collect()
 
         current++;
       }
+
+      currentBlock = currentBlock->next;
     }
+
+    findBlock = findBlock->next;
   }
 
-  gc_assign_generation(&_gc_context.blocks[0], 0);
+  gc_assign_generation(_gc_context.root, 0);
 
   gc_purgeblocks();
 }
+

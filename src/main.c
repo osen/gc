@@ -45,7 +45,9 @@ void EmployeeRun(struct Employee *employee, struct Root *root)
   for(i = 0; i < 500; i++)
   {
     employee->name = gc_alloc(sizeof(char) * 1000);
-    //gc_collect();
+    //employee->name = calloc(1, sizeof(char) * 1000);
+    //free(employee->name);
+    gc_collect();
   }
 }
 
