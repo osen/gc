@@ -53,7 +53,7 @@ void EmployeeRun(struct Employee *employee, struct Root *root)
 
 int main(int argc, char* argv[])
 {
-  printf("GC Test\n");
+  //printf("GC Test\n");
 
   struct Root *root = gc_root(sizeof(*root));
 

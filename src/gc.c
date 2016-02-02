@@ -28,6 +28,9 @@ struct GcContext
   struct GcBlock *root;
 };
 
+int gc_addblock(struct GcBlock *block);
+void gc_purgeblocks();
+
 struct GcContext _gc_context = {0};
 
 /******************************************************************************
@@ -37,7 +40,9 @@ struct GcContext _gc_context = {0};
  ******************************************************************************/
 int gc_addblock(struct GcBlock *block)
 {
-  struct GcBlock *last = _gc_context.root;
+  struct GcBlock *last = NULL;
+
+  last = _gc_context.root;
 
   if(last == NULL)
   {
@@ -57,13 +62,16 @@ int gc_addblock(struct GcBlock *block)
 
 void gc_freereferences(struct GcBlock *ctx)
 {
-  struct GcBlockReference *reference = ctx->references;
+  struct GcBlockReference *reference = NULL;
+  struct GcBlockReference *tofree = NULL;
+
+  reference = ctx->references;
 
   while(reference != NULL)
   {
-    struct GcBlockReference *tofree = reference;
+    tofree = reference;
     reference = reference->next;
-    free(tofree);
+    free(tofree); tofree = NULL;
   }
 
   ctx->references = NULL;
@@ -79,7 +87,10 @@ void gc_freereferences(struct GcBlock *ctx)
  ******************************************************************************/
 void gc_purgeblocks()
 {
-  struct GcBlock *block = _gc_context.root;
+  struct GcBlock *tofree = NULL;
+  struct GcBlock *block = NULL;
+
+  block = _gc_context.root;
 
   if(block == NULL)
   {
@@ -95,7 +106,7 @@ void gc_purgeblocks()
   {
     if(block->generation == -1)
     {
-      block->deleter(block->ptr);
+      block->deleter(block->ptr); block->ptr = NULL;
 
       if(block->references != NULL)
       {
@@ -109,9 +120,9 @@ void gc_purgeblocks()
         block->next->prev = block->prev;
       }
 
-      struct GcBlock *tofree = block;
+      tofree = block;
       block = block->prev;
-      free(tofree);
+      free(tofree); tofree = NULL;
     }
     else
     {
@@ -132,23 +143,26 @@ void gc_purgeblocks()
  ******************************************************************************/
 void *gc_root(size_t size)
 {
+  void *rtn = NULL;
+  struct GcBlock *newBlock = NULL;
+
   if(_gc_context.root != NULL)
   {
     return NULL;
   }
 
-  void *rtn = calloc(1, size);
+  rtn = calloc(1, size);
 
   if(rtn == NULL)
   {
     return NULL;
   }
 
-  struct GcBlock *newBlock = calloc(1, sizeof(*newBlock));
+  newBlock = calloc(1, sizeof(*newBlock));
 
   if(newBlock == NULL)
   {
-    free(rtn);
+    free(rtn); rtn = NULL;
     return NULL;
   }
 
@@ -168,23 +182,26 @@ void *gc_root(size_t size)
  ******************************************************************************/
 void *gc_alloc(size_t size)
 {
+  void *rtn = NULL;
+  struct GcBlock *newBlock = NULL;
+
   if(_gc_context.root == NULL)
   {
     return NULL;
   }
 
-  void *rtn = calloc(1, size);
+  rtn = calloc(1, size);
 
   if(rtn == NULL)
   {
     return NULL;
   }
 
-  struct GcBlock *newBlock = calloc(1, sizeof(*newBlock));
+  newBlock = calloc(1, sizeof(*newBlock));
 
   if(newBlock == NULL)
   {
-    free(rtn);
+    free(rtn); rtn = NULL;
     return NULL;
   }
 
@@ -194,8 +211,8 @@ void *gc_alloc(size_t size)
 
   if(gc_addblock(newBlock) != 0)
   {
-    free(newBlock);
-    free(rtn);
+    free(newBlock); newBlock = NULL;
+    free(rtn); rtn = NULL;
     return NULL;
   }
 
@@ -210,6 +227,8 @@ void *gc_alloc(size_t size)
  ******************************************************************************/
 int gc_attach(void *ptr, void (*deleter)(void*))
 {
+  struct GcBlock *newBlock = NULL;
+
   if(ptr == NULL)
   {
     return 1;
@@ -220,7 +239,7 @@ int gc_attach(void *ptr, void (*deleter)(void*))
     return 1;
   }
 
-  struct GcBlock *newBlock = calloc(1, sizeof(*newBlock));
+  newBlock = calloc(1, sizeof(*newBlock));
 
   if(newBlock == NULL)
   {
@@ -232,7 +251,7 @@ int gc_attach(void *ptr, void (*deleter)(void*))
 
   if(gc_addblock(newBlock) != 0)
   {
-    free(newBlock);
+    free(newBlock); newBlock = NULL;
     return 1;
   }
 
@@ -241,6 +260,8 @@ int gc_attach(void *ptr, void (*deleter)(void*))
 
 int gc_reattach(void *ptr, void (*deleter)(void*))
 {
+  struct GcBlock *block = NULL;
+
   if(ptr == NULL)
   {
     return 1;
@@ -251,7 +272,7 @@ int gc_reattach(void *ptr, void (*deleter)(void*))
     return 1;
   }
 
-  struct GcBlock *block = _gc_context.root;
+  block = _gc_context.root;
 
   while(block != NULL)
   {
@@ -309,6 +330,8 @@ int gc_block_add_reference(struct GcBlock *ctx, struct GcBlock *reference)
 
 void gc_assign_generation(struct GcBlock *ctx, int generation)
 {
+  struct GcBlockReference *reference = NULL;
+
   // Generation already assigned
   if(ctx->generation != -1)
   {
@@ -316,8 +339,7 @@ void gc_assign_generation(struct GcBlock *ctx, int generation)
   }
 
   ctx->generation = generation;
-
-  struct GcBlockReference *reference = ctx->references;
+  reference = ctx->references;
 
   while(reference != NULL)
   {
@@ -338,12 +360,17 @@ void gc_assign_generation(struct GcBlock *ctx, int generation)
  ******************************************************************************/
 void gc_collect()
 {
-  struct GcBlock *findBlock = _gc_context.root;
+  uintptr_t current = 0;
+  uintptr_t end = 0;
+  struct GcBlock *currentBlock = NULL;
+  struct GcBlock *findBlock = NULL;
+
+  findBlock = _gc_context.root;
 
   while(findBlock != NULL)
   {
     findBlock->generation = -1;
-    struct GcBlock *currentBlock = _gc_context.root;
+    currentBlock = _gc_context.root;
 
     while(currentBlock != NULL)
     {
@@ -360,8 +387,8 @@ void gc_collect()
       //  continue;
       //}
 
-      uintptr_t current = (uintptr_t)currentBlock->ptr;
-      uintptr_t end = current + currentBlock->size;
+      current = (uintptr_t)currentBlock->ptr;
+      end = current + currentBlock->size;
       end -= sizeof(currentBlock->ptr);
 
       while(current <= end)
