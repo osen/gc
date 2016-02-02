@@ -28,21 +28,25 @@ struct GcContext
   struct GcBlock *root;
 };
 
-int gc_addblock(struct GcBlock *block);
-void gc_purgeblocks();
+struct GcContext *gc_context()
+{
+  struct GcContext *rtn = NULL;
 
-struct GcContext _gc_context = {0};
+  rtn = calloc(1, sizeof(*rtn));
+
+  return rtn;
+}
 
 /******************************************************************************
  * gc_addblock
  *
  * Reallocate the blocks array to make room for a copy of the new block.
  ******************************************************************************/
-int gc_addblock(struct GcBlock *block)
+int gc_addblock(struct GcContext *ctx, struct GcBlock *block)
 {
   struct GcBlock *last = NULL;
 
-  last = _gc_context.root;
+  last = ctx->root;
 
   if(last == NULL)
   {
@@ -85,12 +89,12 @@ void gc_freereferences(struct GcBlock *ctx)
  * and unless it is the last one of the array, move all the other blocks up to
  * fill up the space and replace it.
  ******************************************************************************/
-void gc_purgeblocks()
+void gc_purgeblocks(struct GcContext *ctx)
 {
   struct GcBlock *tofree = NULL;
   struct GcBlock *block = NULL;
 
-  block = _gc_context.root;
+  block = ctx->root;
 
   if(block == NULL)
   {
@@ -102,7 +106,7 @@ void gc_purgeblocks()
     block = block->next;
   }
 
-  while(block != _gc_context.root)
+  while(block != ctx->root)
   {
     if(block->generation == -1)
     {
@@ -149,12 +153,12 @@ void gc_purgeblocks()
  * nothing and returns NULL. Otherwise it allocates the specified space
  * (filling it with zeros). Then add * a block containing the new data.
  ******************************************************************************/
-void *gc_root(size_t size)
+void *gc_root(struct GcContext *ctx, size_t size)
 {
   void *rtn = NULL;
   struct GcBlock *newBlock = NULL;
 
-  if(_gc_context.root != NULL)
+  if(ctx->root != NULL)
   {
     return NULL;
   }
@@ -177,7 +181,7 @@ void *gc_root(size_t size)
   newBlock->ptr = rtn;
   newBlock->size = size;
 
-  _gc_context.root = newBlock;
+  ctx->root = newBlock;
 
   return rtn;
 }
@@ -188,12 +192,12 @@ void *gc_root(size_t size)
  * Allocate the space specified by size and add block to be later scanned and
  * evaluated for deletion.
  ******************************************************************************/
-void *gc_alloc(size_t size)
+void *gc_alloc(struct GcContext *ctx, size_t size)
 {
   void *rtn = NULL;
   struct GcBlock *newBlock = NULL;
 
-  if(_gc_context.root == NULL)
+  if(ctx->root == NULL)
   {
     return NULL;
   }
@@ -216,7 +220,7 @@ void *gc_alloc(size_t size)
   newBlock->ptr = rtn;
   newBlock->size = size;
 
-  if(gc_addblock(newBlock) != 0)
+  if(gc_addblock(ctx, newBlock) != 0)
   {
     free(newBlock); newBlock = NULL;
     free(rtn); rtn = NULL;
@@ -226,7 +230,7 @@ void *gc_alloc(size_t size)
   return rtn;
 }
 
-int gc_finalizer(void *ptr, void (*deleter)(void*))
+int gc_finalizer(struct GcContext *ctx, void *ptr, void (*deleter)(void*))
 {
   struct GcBlock *block = NULL;
   struct GcBlock *newBlock = NULL;
@@ -236,12 +240,12 @@ int gc_finalizer(void *ptr, void (*deleter)(void*))
     return 1;
   }
 
-  if(_gc_context.root == NULL)
+  if(ctx->root == NULL)
   {
     return 1;
   }
 
-  block = _gc_context.root;
+  block = ctx->root;
 
   while(block != NULL)
   {
@@ -264,7 +268,7 @@ int gc_finalizer(void *ptr, void (*deleter)(void*))
   newBlock->ptr = ptr;
   newBlock->deleter = deleter;
 
-  if(gc_addblock(newBlock) != 0)
+  if(gc_addblock(ctx, newBlock) != 0)
   {
     free(newBlock); newBlock = NULL;
     return 1;
@@ -343,19 +347,19 @@ void gc_assign_generation(struct GcBlock *ctx, int generation)
  * block. If nothing is found, mark it as eligible for purge and then trigger
  * a purge of any blocks.
  ******************************************************************************/
-void gc_collect()
+void gc_collect(struct GcContext *ctx)
 {
   uintptr_t current = 0;
   uintptr_t end = 0;
   struct GcBlock *currentBlock = NULL;
   struct GcBlock *findBlock = NULL;
 
-  findBlock = _gc_context.root;
+  findBlock = ctx->root;
 
   while(findBlock != NULL)
   {
     findBlock->generation = -1;
-    currentBlock = _gc_context.root;
+    currentBlock = ctx->root;
 
     while(currentBlock != NULL)
     {
@@ -395,8 +399,8 @@ void gc_collect()
     findBlock = findBlock->next;
   }
 
-  gc_assign_generation(_gc_context.root, 0);
+  gc_assign_generation(ctx->root, 0);
 
-  gc_purgeblocks();
+  gc_purgeblocks(ctx);
 }
 
