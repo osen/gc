@@ -16,7 +16,6 @@ struct GcBlock
 {
   void *ptr;
   size_t size;
-  int callFree;
   void (*deleter)(void*);
   struct GcBlockReference *references;
   int generation;
@@ -112,7 +111,7 @@ void gc_purgeblocks()
         block->deleter(block->ptr);
       }
 
-      if(block->callFree != 0)
+      if(block->size > 0)
       {
         free(block->ptr); block->ptr = NULL;
       }
@@ -177,7 +176,6 @@ void *gc_root(size_t size)
 
   newBlock->ptr = rtn;
   newBlock->size = size;
-  newBlock->callFree = 1;
 
   _gc_context.root = newBlock;
 
@@ -217,7 +215,6 @@ void *gc_alloc(size_t size)
 
   newBlock->ptr = rtn;
   newBlock->size = size;
-  newBlock->callFree = 1;
 
   if(gc_addblock(newBlock) != 0)
   {
