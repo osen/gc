@@ -16,6 +16,7 @@ struct GcBlock
 {
   void *ptr;
   size_t size;
+  int callFree;
   void (*deleter)(void*);
   struct GcBlockReference *references;
   int generation;
@@ -106,7 +107,15 @@ void gc_purgeblocks()
   {
     if(block->generation == -1)
     {
-      block->deleter(block->ptr); block->ptr = NULL;
+      if(block->deleter != NULL)
+      {
+        block->deleter(block->ptr);
+      }
+
+      if(block->callFree != 0)
+      {
+        free(block->ptr); block->ptr = NULL;
+      }
 
       if(block->references != NULL)
       {
@@ -168,6 +177,7 @@ void *gc_root(size_t size)
 
   newBlock->ptr = rtn;
   newBlock->size = size;
+  newBlock->callFree = 1;
 
   _gc_context.root = newBlock;
 
@@ -207,7 +217,7 @@ void *gc_alloc(size_t size)
 
   newBlock->ptr = rtn;
   newBlock->size = size;
-  newBlock->deleter = free;
+  newBlock->callFree = 1;
 
   if(gc_addblock(newBlock) != 0)
   {
@@ -219,48 +229,10 @@ void *gc_alloc(size_t size)
   return rtn;
 }
 
-/******************************************************************************
- * gc_attach
- *
- * Using an existing pointer, add a block with the specified deleter so that
- * the garbage collector can manage it.
- ******************************************************************************/
-int gc_attach(void *ptr, void (*deleter)(void*))
-{
-  struct GcBlock *newBlock = NULL;
-
-  if(ptr == NULL)
-  {
-    return 1;
-  }
-
-  if(_gc_context.root == NULL)
-  {
-    return 1;
-  }
-
-  newBlock = calloc(1, sizeof(*newBlock));
-
-  if(newBlock == NULL)
-  {
-    return 1;
-  }
-
-  newBlock->ptr = ptr;
-  newBlock->deleter = deleter;
-
-  if(gc_addblock(newBlock) != 0)
-  {
-    free(newBlock); newBlock = NULL;
-    return 1;
-  }
-
-  return 0;
-}
-
-int gc_reattach(void *ptr, void (*deleter)(void*))
+int gc_finalizer(void *ptr, void (*deleter)(void*))
 {
   struct GcBlock *block = NULL;
+  struct GcBlock *newBlock = NULL;
 
   if(ptr == NULL)
   {
@@ -285,7 +257,23 @@ int gc_reattach(void *ptr, void (*deleter)(void*))
     block = block->next;
   }
 
-  return 1;
+  newBlock = calloc(1, sizeof(*newBlock));
+
+  if(newBlock == NULL)
+  {
+    return 1;
+  }
+
+  newBlock->ptr = ptr;
+  newBlock->deleter = deleter;
+
+  if(gc_addblock(newBlock) != 0)
+  {
+    free(newBlock); newBlock = NULL;
+    return 1;
+  }
+
+  return 0;
 }
 
 int gc_block_add_reference(struct GcBlock *ctx, struct GcBlock *reference)

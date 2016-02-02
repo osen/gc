@@ -27,7 +27,7 @@ struct Employee *EmployeeCreate()
   }
 
   rtn->file = fopen("test.txt", "w");
-  gc_attach(rtn->file, gc_fclose);
+  gc_finalizer(rtn->file, gc_fclose);
 
   return rtn;
 }
@@ -39,16 +39,26 @@ struct Root
   FILE *file;
 };
 
+  static int test = 0;
+
+void testfinal(void* data)
+{
+  test++;
+}
+
 void EmployeeRun(struct Employee *employee, struct Root *root)
 {
   int i = 0;
   for(i = 0; i < 500; i++)
   {
     employee->name = gc_alloc(sizeof(char) * 1000);
+    gc_finalizer(employee->name, testfinal);
     //employee->name = calloc(1, sizeof(char) * 1000);
     //free(employee->name);
     gc_collect();
   }
+
+  printf("%i\n", test);
 }
 
 int main(int argc, char* argv[])
@@ -68,7 +78,7 @@ int main(int argc, char* argv[])
   root->employee->employee->employee = EmployeeCreate();
 
   root->file = fopen("test.txt", "w");
-  gc_attach(root->file, gc_fclose);
+  gc_finalizer(root->file, gc_fclose);
 
   EmployeeRun(root->employee, root);
 
