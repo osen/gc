@@ -5,19 +5,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
-struct GcBlockReference
-{
-  struct GcBlock *block;
-  struct GcBlockReference *next;
-  struct GcBlockReference *prev;
-};
-
 struct GcBlock
 {
   void *ptr;
   size_t size;
   void (*deleter)(void*);
-  struct GcBlockReference *references;
   int generation;
   struct GcBlock *next;
   struct GcBlock *prev;
@@ -64,23 +56,6 @@ int gc_addblock(struct GcContext *ctx, struct GcBlock *block)
   return 0;
 }
 
-void gc_freereferences(struct GcBlock *ctx)
-{
-  struct GcBlockReference *reference = NULL;
-  struct GcBlockReference *tofree = NULL;
-
-  reference = ctx->references;
-
-  while(reference != NULL)
-  {
-    tofree = reference;
-    reference = reference->next;
-    free(tofree); tofree = NULL;
-  }
-
-  ctx->references = NULL;
-}
-
 /******************************************************************************
  * gc_purgeblocks
  *
@@ -119,11 +94,6 @@ void gc_purgeblocks(struct GcContext *ctx)
       if(block->size > 0)
       {
         free(block->ptr); block->ptr = NULL;
-      }
-
-      if(block->references != NULL)
-      {
-        gc_freereferences(block);
       }
 
       block->prev->next = block->next;
@@ -284,66 +254,52 @@ int gc_finalizer(struct GcContext *ctx, void *ptr, void (*deleter)(void*))
   return 0;
 }
 
-int gc_block_add_reference(struct GcBlock *ctx, struct GcBlock *reference)
+void gc_scan_block(struct GcContext *ctx, struct GcBlock *block)
 {
-  struct GcBlockReference *lastReference = NULL;
+  struct GcBlock *currentBlock = NULL;
+  uintptr_t current = 0;
+  uintptr_t end = 0;
 
-  if(ctx->references == NULL)
-  {
-    ctx->references = calloc(1, sizeof(*ctx->references));
+  block->generation = 1;
 
-    if(ctx->references == NULL)
-    {
-      return 1;
-    }
-
-    lastReference = ctx->references;
-  }
-  else
-  {
-    lastReference = ctx->references;
-
-    while(lastReference->next != NULL)
-    {
-      lastReference = lastReference->next;
-    }
-
-    lastReference->next = calloc(1, sizeof(*lastReference));
-
-    if(lastReference->next == NULL)
-    {
-      return 1;
-    }
-
-    lastReference->next->prev = lastReference;
-    lastReference = lastReference->next;
-  }
-
-  lastReference->block = reference;
-
-  return 0;
-}
-
-void gc_assign_generation(struct GcBlock *ctx, int generation)
-{
-  struct GcBlockReference *reference = NULL;
-
-  // Generation already assigned
-  if(ctx->generation != -1)
+  if(block->size <= 0)
   {
     return;
   }
 
-  ctx->generation = generation;
-  reference = ctx->references;
+  current = (uintptr_t)block->ptr;
+  end = current + block->size;
+  end -= sizeof(block->ptr);
 
-  while(reference != NULL)
+  while(current <= end)
   {
-    gc_assign_generation(reference->block, generation + 1);
-    reference = reference->next;
-  }
+    void **test = (void**)current;
+    currentBlock = ctx->root;
 
-  gc_freereferences(ctx);
+    while(currentBlock != NULL)
+    {
+      // We will let self references pass
+      //if(currentBlock == block)
+      //{
+      //  currentBlock = currentBlock->next;
+      //  continue;
+      //}
+
+      if(*test == currentBlock->ptr)
+      {
+        if(currentBlock->generation == -1)
+        {
+          gc_scan_block(ctx, currentBlock);
+        }
+
+        break;
+      }
+
+      currentBlock = currentBlock->next;
+    }
+
+    current++;
+  }
 }
 
 /******************************************************************************
@@ -356,57 +312,22 @@ void gc_assign_generation(struct GcBlock *ctx, int generation)
  ******************************************************************************/
 void gc_collect(struct GcContext *ctx)
 {
-  uintptr_t current = 0;
-  uintptr_t end = 0;
-  struct GcBlock *currentBlock = NULL;
-  struct GcBlock *findBlock = NULL;
+  struct GcBlock *block = NULL;
 
-  findBlock = ctx->root;
-
-  while(findBlock != NULL)
+  if(ctx->root == NULL)
   {
-    findBlock->generation = -1;
-    currentBlock = ctx->root;
-
-    while(currentBlock != NULL)
-    {
-      if(currentBlock->size <= 0)
-      {
-        currentBlock = currentBlock->next;
-        continue;
-      }
-
-      // We will let self references pass
-      //if(findBlock == currentBlock)
-      //{
-      //  currentBlock = currentBlock->next;
-      //  continue;
-      //}
-
-      current = (uintptr_t)currentBlock->ptr;
-      end = current + currentBlock->size;
-      end -= sizeof(currentBlock->ptr);
-
-      while(current <= end)
-      {
-        void **test = (void**)current;
-
-        if(*test == findBlock->ptr)
-        {
-          gc_block_add_reference(currentBlock, findBlock);
-          break;
-        }
-
-        current++;
-      }
-
-      currentBlock = currentBlock->next;
-    }
-
-    findBlock = findBlock->next;
+    return;
   }
 
-  gc_assign_generation(ctx->root, 0);
+  block = ctx->root;
+
+  while(block != NULL)
+  {
+    block->generation = -1;
+    block = block->next;
+  }
+
+  gc_scan_block(ctx, ctx->root);
 
   gc_purgeblocks(ctx);
 }
