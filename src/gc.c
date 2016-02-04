@@ -93,6 +93,7 @@ void gc_purgeblocks(struct GcContext *ctx)
 {
   struct GcBlock *tofree = NULL;
   struct GcBlock *block = NULL;
+  int purgeCount = 0;
 
   block = ctx->root;
 
@@ -135,11 +136,17 @@ void gc_purgeblocks(struct GcContext *ctx)
       tofree = block;
       block = block->prev;
       free(tofree); tofree = NULL;
+      purgeCount ++;
     }
     else
     {
       block = block->prev;
     }
+  }
+
+  if(purgeCount > 0)
+  {
+    printf("Garbage Collector: %i purges\n", purgeCount);
   }
 }
 
