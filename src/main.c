@@ -1,109 +1,91 @@
+#include "Canvas.h"
+#include "GridCell.h"
+#include "LinkedList.h"
+#include "World.h"
+#include "Resources.h"
+#include "Mouse.h"
+#include "Camera.h"
+#include "Keyboard.h"
+
 #include <gc.h>
+#include <SDL.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 
-struct GcContext *gc_ctx = NULL;
-
-struct Employee
+void draw(struct Canvas *canvas)
 {
-  char *name;
-  struct Employee *employee;
-  FILE *file;
-};
+  struct World *world = NULL;
+  struct GridCell *cell = NULL;
+  struct LinkedListItem *cellItem = NULL;
 
-void gc_fclose(void *file)
-{
-  printf("fclose\n");
-  fclose((FILE*)file);
-}
+  CanvasClear(canvas, 100, 149, 237);
+  world = CanvasUserData(canvas);
+  CameraUpdate(world->camera);
+  cellItem = LinkedListFirst(world->grid);
 
-struct Employee *EmployeeCreate()
-{
-  struct Employee *rtn = gc_alloc(gc_ctx, sizeof(*rtn));
-
-  if(!rtn)
+  while(cellItem != NULL)
   {
-    printf("Failed to allocate Employee\n");
-    exit(1);
+    cell = LinkedListItemGet(cellItem);
+    GridCellDraw(cell);
+
+    cellItem = LinkedListItemNext(cellItem);
   }
-
-  rtn->file = fopen("test.txt", "w");
-  gc_finalizer(gc_ctx, rtn->file, gc_fclose);
-
-  return rtn;
 }
 
-struct Root
+void prepare_grid(struct World *world)
 {
-  struct GcContext *gcCtx;
-  int a;
-  struct Employee *employee;
-  FILE *file;
-};
+  int y = 0;
+  int x = 0;
+  int gridWidth = 18;
+  int gridHeight = 13;
+  struct LinkedListItem *cellItem;
+  struct GridCell *cell;
 
-  static int test = 0;
+  world->grid = LinkedListCreate(world->gc_ctx);
 
-void testfinal(void* data)
-{
-  test++;
-}
-
-void EmployeeRun(struct Employee *employee, struct Root *root)
-{
-  int i = 0;
-  for(i = 0; i < 500; i++)
+  for(y = 0; y < gridHeight; y++)
   {
-    employee->name = gc_alloc(gc_ctx, sizeof(char) * 1000);
-    gc_finalizer(gc_ctx, employee->name, testfinal);
-    //employee->name = calloc(1, sizeof(char) * 1000);
-    //free(employee->name);
-    gc_collect(gc_ctx);
+    for(x = 0; x < gridWidth; x++)
+    {
+      cell = GridCellCreate(world);
+      cellItem = LinkedListAdd(world->grid, cell);
+      GridCellSetPosition(cell, x * GRIDCELL_SIZE, y * GRIDCELL_SIZE);
+    }
   }
-
-  printf("%i\n", test);
 }
 
 int main(int argc, char* argv[])
 {
-  struct Root *root = NULL;
-
-  printf("GC Test\n");
+  struct GcContext *gc_ctx = NULL;
+  struct World *world = NULL;
 
   gc_ctx = gc_context();
-  root = gc_root(gc_ctx, sizeof(*root));
+  world = gc_root(gc_ctx, sizeof(*world));
 
-  if(!root)
+  if(!world)
   {
     printf("Failed to allocate GC root\n");
-    exit(1);
+
+    return 1;
   }
 
-  root->gcCtx = gc_ctx;
-  root->employee = EmployeeCreate();
-  root->employee->employee = EmployeeCreate();
-  root->employee->employee->employee = EmployeeCreate();
+  world->gc_ctx = gc_ctx;
+  world->camera = CameraCreate(world);
+  world->resources = ResourcesCreate(world);
+  world->canvas = CanvasCreate(world);
+  world->mouse = MouseCreate(world);
+  world->keyboard = KeyboardCreate(world);
 
-  root->file = fopen("test.txt", "w");
-  gc_finalizer(gc_ctx, root->file, gc_fclose);
+  CanvasSetUserData(world->canvas, world);
+  CanvasSetDrawFunc(world->canvas, draw);
 
-  EmployeeRun(root->employee, root);
+  prepare_grid(world);
 
-  //root->employee = NULL;
-  root->employee->employee = NULL;
-  root->employee->employee = root->employee;
+  CanvasMainLoop(world->canvas, gc_ctx);
 
+  memset(world, 0, sizeof(*world));
   gc_collect(gc_ctx);
-  //gc_collect();
-  //gc_collect();
-
-  root->file = NULL;
-
-  gc_collect(gc_ctx);
-
-  //memset(root, 0, sizeof(*root));
-  //gc_collect();
-  //free(root);
 
   return 0;
 }
