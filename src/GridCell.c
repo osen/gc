@@ -76,22 +76,14 @@ int check_collision( SDL_Rect A, SDL_Rect B )
 
 void GridCellDraw(struct GridCell *ctx)
 {
-  struct Canvas *canvas = NULL;
   SDL_Rect rect = {0};
-  struct SDL_Surface *screen = NULL;
   struct Camera *camera = NULL;
-  int x = 0;
-  int y = 0;
   int mouseX = 0;
   int mouseY = 0;
   SDL_Rect mouseRect = {0};
 
-  canvas = ctx->world->canvas;
-  screen = CanvasScreen(canvas);
   camera = ctx->world->camera;
 
-  x = ctx->x;
-  y = ctx->y;
   rect.x = ctx->x;
   rect.y = ctx->y;
   rect.w = GRIDCELL_SIZE;

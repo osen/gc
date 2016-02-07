@@ -157,9 +157,6 @@ void _ResourcesGenerateScaledImage(struct Image *ctx)
   double x = 0;
   double o_y = 0;
   double o_x = 0;
-  struct Canvas *canvas = NULL;
-
-  canvas = ctx->resources->world->canvas;
 
   Width = Surface->clip_rect.w;
   Height = Surface->clip_rect.h;
@@ -251,6 +248,7 @@ struct Image *ResourcesLoadImage(struct Resources *ctx, char *path)
 
   gc_finalizer(ctx->world->gc_ctx, loadedImage, _SDL_FreeSurface);
   image->raw = SDL_DisplayFormat(loadedImage);
+  gc_finalizer(ctx->world->gc_ctx, image->raw, _SDL_FreeSurface);
   _ResourcesGenerateScaledImage(image);
   LinkedListAdd(ctx->images, image);
 

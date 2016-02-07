@@ -23,7 +23,6 @@ void CanvasMainLoop(struct Canvas *ctx, struct GcContext *gc)
   int quit = 0;
   int gcTimeout = 100;
   int keyState = 0;
-  int a = 0;
 
   while(quit == 0)
   {

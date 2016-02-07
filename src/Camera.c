@@ -2,6 +2,7 @@
 #include "World.h"
 #include "Keyboard.h"
 #include "Canvas.h"
+#include "Resources.h"
 
 struct Camera *CameraCreate(struct World *world)
 {

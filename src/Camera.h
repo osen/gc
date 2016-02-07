@@ -2,6 +2,7 @@
 #define CAMERA_H
 
 struct World;
+struct Image;
 
 struct Camera
 {

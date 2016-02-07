@@ -2,12 +2,14 @@
 #define CANVAS_H
 
 #include <SDL.h>
+#include <gc.h>
 
 #define RELATIVE_WIDTH 1200
 #define RELATIVE_HEIGHT 900
 
 struct World;
 struct Canvas;
+struct Image;
 
 struct Canvas *CanvasCreate(struct World *world);
 void CanvasRefresh(struct Canvas *ctx);

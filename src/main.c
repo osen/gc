@@ -39,8 +39,7 @@ void prepare_grid(struct World *world)
   int x = 0;
   int gridWidth = 18;
   int gridHeight = 13;
-  struct LinkedListItem *cellItem;
-  struct GridCell *cell;
+  struct GridCell *cell = NULL;
 
   world->grid = LinkedListCreate(world->gc_ctx);
 
@@ -49,7 +48,7 @@ void prepare_grid(struct World *world)
     for(x = 0; x < gridWidth; x++)
     {
       cell = GridCellCreate(world);
-      cellItem = LinkedListAdd(world->grid, cell);
+      LinkedListAdd(world->grid, cell);
       GridCellSetPosition(cell, x * GRIDCELL_SIZE, y * GRIDCELL_SIZE);
     }
   }
