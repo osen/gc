@@ -13,16 +13,10 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Source Files\gc">
-      <UniqueIdentifier>{8dd5ba08-b173-4689-936c-17b5538e29be}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.c">
       <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\gc.c">
-      <Filter>Source Files\gc</Filter>
     </ClCompile>
     <ClCompile Include="src\Canvas.c">
       <Filter>Source Files</Filter>
@@ -43,6 +37,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Keyboard.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lodepng.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -72,6 +72,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Keyboard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lodepng.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

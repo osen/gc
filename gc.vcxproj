@@ -78,6 +78,7 @@
     <ClCompile Include="src\GridCell.c" />
     <ClCompile Include="src\Keyboard.c" />
     <ClCompile Include="src\LinkedList.c" />
+    <ClCompile Include="src\lodepng.c" />
     <ClCompile Include="src\main.c" />
     <ClCompile Include="src\Mouse.c" />
     <ClCompile Include="src\Resources.c" />
@@ -89,6 +90,7 @@
     <ClInclude Include="src\GridCell.h" />
     <ClInclude Include="src\Keyboard.h" />
     <ClInclude Include="src\LinkedList.h" />
+    <ClInclude Include="src\lodepng.h" />
     <ClInclude Include="src\Mouse.h" />
     <ClInclude Include="src\Resources.h" />
     <ClInclude Include="src\World.h" />

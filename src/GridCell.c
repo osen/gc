@@ -22,9 +22,9 @@ struct GridCell *GridCellCreate(struct World *world)
 
   rtn = gc_alloc(world->gc_ctx, sizeof(*rtn));
   rtn->world = world;
-  rtn->image = ResourcesLoadImage(rtn->world->resources, "images/grass.bmp");
-  rtn->blockImage = ResourcesLoadImage(rtn->world->resources, "images/block.bmp");
-  rtn->cursorImage = ResourcesLoadImage(rtn->world->resources, "images/cursor.bmp");
+  rtn->image = ResourcesLoadImage(rtn->world->resources, "images/grass.png");
+  rtn->blockImage = ResourcesLoadImage(rtn->world->resources, "images/block.png");
+  rtn->cursorImage = ResourcesLoadImage(rtn->world->resources, "images/cursor.png");
 
   return rtn;
 }

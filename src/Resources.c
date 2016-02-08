@@ -209,6 +209,65 @@ void ResourcesRegenerateScaledImages(struct Resources *ctx)
   }
 }
 
+SDL_Surface *LoadPng(struct GcContext *gc, char *path)
+{
+  SDL_Surface *rtn = NULL;
+  unsigned error = 0;
+  unsigned char* image = NULL;
+  unsigned width = 0;
+  unsigned height = 0;
+  int x = 0;
+  int y = 0;
+  int pixel = 0;
+  Uint32 rmask = 0;
+  Uint32 gmask = 0;
+  Uint32 bmask = 0;
+  Uint32 amask = 0;
+
+  error = lodepng_decode32_file(&image, &width, &height, path);
+
+  if(error) 
+  {
+    printf("Error %u: %s\n", error, lodepng_error_text(error));
+    exit(1);
+  }
+
+  gc_finalizer(gc, image, free);
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+    rmask = 0xff000000;
+    gmask = 0x00ff0000;
+    bmask = 0x0000ff00;
+    amask = 0x000000ff;
+#else
+    rmask = 0x000000ff;
+    gmask = 0x0000ff00;
+    bmask = 0x00ff0000;
+    amask = 0xff000000;
+#endif
+
+  rtn = SDL_CreateRGBSurface(0, width, height, 32,
+    rmask, gmask, bmask, amask);
+
+  if(rtn == NULL)
+  {
+    exit(1);
+  }
+
+  gc_finalizer(gc, rtn, _SDL_FreeSurface);
+
+  for(y = 0; y < height; y++)
+  {
+    for(x = 0; x < width; x++)
+    {
+      putpixel(rtn, x, y, SDL_MapRGBA(rtn->format, image[pixel], image[pixel + 1], image[pixel + 2], image[pixel + 3]));
+      pixel += 4;
+    }
+  }
+
+  return rtn;
+}
+
 struct Image *ResourcesLoadImage(struct Resources *ctx, char *path)
 {
   struct LinkedListItem *imageItem = NULL;
@@ -237,18 +296,16 @@ struct Image *ResourcesLoadImage(struct Resources *ctx, char *path)
   }
 
   image->resources = ctx;
+
   image->path = strdup(path);
   gc_finalizer(ctx->world->gc_ctx, image->path, free);
-  loadedImage = SDL_LoadBMP(path);
 
-  if(loadedImage == NULL)
-  {
-    exit(1);
-  }
+  //loadedImage = SDL_LoadBMP(path);
+  loadedImage = LoadPng(ctx->world->gc_ctx, path);
 
-  gc_finalizer(ctx->world->gc_ctx, loadedImage, _SDL_FreeSurface);
-  image->raw = SDL_DisplayFormat(loadedImage);
+  image->raw = SDL_DisplayFormatAlpha(loadedImage);
   gc_finalizer(ctx->world->gc_ctx, image->raw, _SDL_FreeSurface);
+
   _ResourcesGenerateScaledImage(image);
   LinkedListAdd(ctx->images, image);
 
