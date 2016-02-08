@@ -39,6 +39,48 @@ struct LinkedListItem *LinkedListFirst(struct LinkedList *ctx)
   return ctx->first;
 }
 
+struct LinkedListItem *LinkedListLast(struct LinkedList *ctx)
+{
+  return ctx->last;
+}
+
+int LinkedListSize(struct LinkedList *ctx)
+{
+  struct LinkedListItem *current = NULL;
+  int rtn = 0;
+
+  current = ctx->first;
+
+  while(current != NULL)
+  {
+    rtn ++;
+    current = current->next;
+  }
+
+  return rtn;
+}
+
+struct LinkedListItem *LinkedListAt(struct LinkedList *ctx, int index)
+{
+  struct LinkedListItem *rtn = NULL;
+  int i = 0;
+
+  rtn = ctx->first;
+
+  for(i = 0; i < index; i++)
+  {
+    if(rtn == NULL)
+    {
+      printf("Index out of bounds\n");
+      exit(1);
+    }
+
+    rtn = rtn->next;
+  }
+
+  return rtn;
+}
+
 struct LinkedListItem *LinkedListAdd(struct LinkedList *ctx, void *ptr)
 {
   struct LinkedListItem *newItem = NULL;

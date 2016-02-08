@@ -40,6 +40,7 @@ void prepare_grid(struct World *world)
   int gridWidth = 18;
   int gridHeight = 13;
   struct GridCell *cell = NULL;
+  struct GridCell *other = NULL;
 
   world->grid = LinkedListCreate(world->gc_ctx);
 
@@ -48,6 +49,35 @@ void prepare_grid(struct World *world)
     for(x = 0; x < gridWidth; x++)
     {
       cell = GridCellCreate(world);
+
+      if(x > 0)
+      {
+        other = LinkedListItemGet(LinkedListLast(world->grid));
+        GridCellSetNeighbour(cell, GRIDCELL_LEFT, other);
+        GridCellSetNeighbour(other, GRIDCELL_RIGHT, cell);
+
+        if(y > 0)
+        {
+          other = LinkedListItemGet(LinkedListAt(world->grid, LinkedListSize(world->grid) - gridWidth - 1));
+          GridCellSetNeighbour(cell, GRIDCELL_TOPLEFT, other);
+          GridCellSetNeighbour(other, GRIDCELL_BOTTOMRIGHT, cell);
+        }
+      }
+
+      if(y > 0)
+      {
+        other = LinkedListItemGet(LinkedListAt(world->grid, LinkedListSize(world->grid) - gridWidth));
+        GridCellSetNeighbour(cell, GRIDCELL_TOP, other);
+        GridCellSetNeighbour(other, GRIDCELL_BOTTOM, cell);
+      }
+
+      if(y > 0 & y < gridHeight && x < gridWidth - 1)
+      {
+        other = LinkedListItemGet(LinkedListAt(world->grid, LinkedListSize(world->grid) - gridWidth + 1));
+        GridCellSetNeighbour(cell, GRIDCELL_TOPRIGHT, other);
+        GridCellSetNeighbour(other, GRIDCELL_BOTTOMLEFT, cell);
+      }
+
       LinkedListAdd(world->grid, cell);
       GridCellSetPosition(cell, x * GRIDCELL_SIZE, y * GRIDCELL_SIZE);
     }
