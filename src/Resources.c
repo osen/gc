@@ -2,6 +2,7 @@
 #include "World.h"
 #include "LinkedList.h"
 #include "Canvas.h"
+#include "lodepng.h"
 
 #include <SDL.h>
 
